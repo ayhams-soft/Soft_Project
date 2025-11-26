@@ -52,6 +52,26 @@ public class User {
         this.email = email;
     }
 
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
    // public List<Loan> getLoans() {
      //   return loans;
    // }
@@ -72,4 +92,7 @@ public class User {
       //  this.unpaidFines -= amount;
      //   if (this.unpaidFines < 0) this.unpaidFines = 0;
     //}
+    
+    
+  
 }

@@ -46,7 +46,7 @@ public class Main {
         clearScreen();
         println("--- Admin Login ---");
         
-        String idText = readLine("ID: ");      // نسجل الدخول بالـ ID وليس Username
+        String idText = readLine("ID: ");      
         String password = readLine("Password: ");
 
         boolean ok = LOGIN.authenticate(idText, password, "ADMIN");
@@ -55,8 +55,7 @@ public class Main {
             println("Login successful. Welcome, Admin!");
             waitEnter();
 
-            // هنا لازم نجيب كائن الـ Admin (لاحقاً)
-            // الآن فقط نكمل للقائمة
+           
             adminMenu(null);
         } else {
             println("Login failed: Invalid ID or password.");
@@ -77,7 +76,7 @@ public class Main {
             println("Login successful. Welcome, User!");
             waitEnter();
 
-            // لاحقاً نعثر على كائن اليوزر من repo
+
             userMenu(null);
         } else {
             println("Login failed: Invalid ID or password.");
@@ -101,7 +100,7 @@ public class Main {
             String sel = readLine("\n> ");
             switch (sel) {
                 case "1":
-                    // Add Book submenu: choose new book or add copies
+
                     clearScreen();
                     println("--- Add Book ---");
                     println("Choose option:");
@@ -150,7 +149,7 @@ public class Main {
                         waitEnter();
 
                     } else if ("2".equals(choice)) {
-                        // Add EXTRA copies to existing book
+
                         clearScreen();
                         println("--- Add Copies to Existing Book ---");
                         String isbn = readLine("ISBN of existing book: ").trim();
