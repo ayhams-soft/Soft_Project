@@ -6,27 +6,39 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Fake EmailClient لتسجيل الرسائل المرسلة أثناء الاختبارات أو في وضع اختبار (test mode).
+ * Fake implementation of EmailClient used for testing.
+ * Instead of sending real emails, it stores all sent messages
+ * so tests can inspect them later.
  */
 public class FakeEmailClient implements EmailClient {
 
+    /**
+     * Simple record holding a sent email.
+     */
     public static class SentEmail {
         public final String to;
         public final String subject;
         public final String body;
+
         public SentEmail(String to, String subject, String body) {
-            this.to = to; this.subject = subject; this.body = body;
+            this.to = to;
+            this.subject = subject;
+            this.body = body;
         }
+
         @Override
         public String toString() {
             return "SentEmail[to=" + to + ", subject=" + subject + ", body=" + body + "]";
         }
+
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
             if (!(o instanceof SentEmail)) return false;
             SentEmail s = (SentEmail) o;
-            return Objects.equals(to, s.to) && Objects.equals(subject, s.subject) && Objects.equals(body, s.body);
+            return Objects.equals(to, s.to)
+                    && Objects.equals(subject, s.subject)
+                    && Objects.equals(body, s.body);
         }
     }
 
@@ -38,14 +50,18 @@ public class FakeEmailClient implements EmailClient {
     }
 
     /**
-     * إرجاع نسخة غير قابلة للتعديل من الرسائل المسجَّلة
+     * Returns an unmodifiable list of all sent emails.
+     * Useful for checking results in tests.
+     *
+     * @return list of SentEmail items
      */
     public List<SentEmail> getSent() {
         return Collections.unmodifiableList(sent);
     }
 
     /**
-     * مسح السجل (مفيد قبل كل اختبار)
+     * Clears the stored email list.
+     * Tests usually call this before each run.
      */
     public void clear() {
         sent.clear();

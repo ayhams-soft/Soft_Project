@@ -1,16 +1,18 @@
 package library.notifications;
 
 /**
- * واجهة بسيطة لإرسال الإيميلات.
- * تنفيذ حقيقي قد يكون عبر SMTP أو أي مزوّد آخر.
- * لتنفيذ الاختبارات نستخدم FakeEmailClient.
+ * Simple interface for sending email messages.
+ * A real implementation may use SMTP or another provider.
+ * For testing purposes, FakeEmailClient is used.
  */
 public interface EmailClient {
+
     /**
-     * أرسل رسالة نصية بسيطة.
-     * @param to   عنوان المستلم (email)
-     * @param subject موضوع الرسالة
-     * @param body نص الرسالة
+     * Sends a simple text email.
+     *
+     * @param to      receiver email address
+     * @param subject email subject
+     * @param body    email body text
      */
     void send(String to, String subject, String body);
 }

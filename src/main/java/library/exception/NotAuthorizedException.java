@@ -1,8 +1,16 @@
 package library.exception;
 
 /**
- * Thrown when action requires admin privileges.
+ * Exception thrown when an action requires admin privileges.
  */
 public class NotAuthorizedException extends RuntimeException {
-    public NotAuthorizedException(String msg) { super(msg); }
+
+    /**
+     * Creates a new NotAuthorizedException.
+     *
+     * @param msg the error message
+     */
+    public NotAuthorizedException(String msg) {
+        super(msg);
+    }
 }

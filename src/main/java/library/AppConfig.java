@@ -11,8 +11,8 @@ import library.strategy.BookFineStrategy;
 import library.strategy.CDFineStrategy;
 
 /**
- * Application configuration — dependency wiring + seed data.
- * Registers both Console Notifier and a FakeEmailClient for test-mode recording.
+ * AppConfig: sets up the main components of the library system.
+ * This class wires the services and adds some initial sample data.
  */
 public class AppConfig {
 
@@ -22,10 +22,10 @@ public class AppConfig {
     private final InMemoryLoanRepository loanRepo = new InMemoryLoanRepository();
     private final TimeProvider timeProvider = new SystemTimeProvider();
 
-    // ReminderService constructed with timeProvider
+    // Reminder service uses the time provider
     private final ReminderService reminderService = new ReminderService(timeProvider);
 
-    // Fake email client for test mode (records sent messages)
+    // Fake email client (mainly for testing and checking sent messages)
     private final FakeEmailClient fakeEmailClient = new FakeEmailClient();
 
     private final AuthService authService = new AuthService(adminRepo);
@@ -33,20 +33,27 @@ public class AppConfig {
             new LibraryService(userRepo, mediaRepo, loanRepo, reminderService, timeProvider,
                     new BookFineStrategy(), new CDFineStrategy(), authService);
 
+    /**
+     * Constructor: loads the seed data and registers the notifiers.
+     */
     public AppConfig() {
         seedAdmins();
         seedUsers();
         seedMedia();
-        registerNotifiers(); // register notifiers: console + fake email
+        registerNotifiers();
     }
 
-    /** Seed admin accounts */
+    /**
+     * Adds some default admin accounts.
+     */
     private void seedAdmins() {
-        adminRepo.save(new Admin("admin", "admin"));   // default
-        adminRepo.save(new Admin("ayham", "1234"));    // NEW admin requested
+        adminRepo.save(new Admin("admin", "admin"));
+        adminRepo.save(new Admin("ayham", "1234"));
     }
 
-    /** Seed demo users */
+    /**
+     * Adds some sample users to start with.
+     */
     private void seedUsers() {
         userRepo.save(new User("demo", "demo@example.com"));
         userRepo.save(new User("ahmad", "ahmad@gmail.com"));
@@ -54,23 +61,28 @@ public class AppConfig {
         userRepo.save(new User("yazan", "yazan@hotmail.com"));
     }
 
-    /** Seed books + CDs */
+    /**
+     * Adds some sample books and CDs.
+     */
     private void seedMedia() {
-        // Books
         mediaRepo.save(new Book("Clean Code", "Robert C. Martin", "ISBN-100"));
         mediaRepo.save(new Book("Effective Java", "Joshua Bloch", "ISBN-200"));
         mediaRepo.save(new Book("Design Patterns", "GoF", "ISBN-300"));
         mediaRepo.save(new Book("Refactoring", "Martin Fowler", "ISBN-400"));
 
-        // CDs
         mediaRepo.save(new CD("Greatest Hits", "Michael Jackson"));
         mediaRepo.save(new CD("Classical Collection", "Mozart"));
         mediaRepo.save(new CD("Rock Legends", "Pink Floyd"));
     }
 
-    /** Register console notifier + fake email notifier */
+    /**
+     * Registers two notifiers:
+     * 1) Console output
+     * 2) Fake email sender
+     */
     private void registerNotifiers() {
-        // Console notifier: prints reminders to standard output; helpful for manual testing by admin
+
+        // Console notifier
         reminderService.registerNotifier((user, message) -> {
             if (user != null) {
                 System.out.println("Reminder -> " + user.getEmail() + " : " + message);
@@ -79,24 +91,38 @@ public class AppConfig {
             }
         });
 
-        // FakeEmail notifier: delegates to FakeEmailClient (records messages)
+        // Fake email notifier
         reminderService.registerNotifier((user, message) -> {
-            if (user != null && user.getEmail() != null && !user.getEmail().trim().isEmpty()) {
+            if (user != null && user.getEmail() != null && !user.getEmail().isEmpty()) {
                 fakeEmailClient.send(user.getEmail(), "Library reminder", message);
             }
         });
     }
 
-    // Getters for DI and for Main usage
+    /** @return admin repository */
     public AdminRepository adminRepository() { return adminRepo; }
+
+    /** @return user repository */
     public UserRepository userRepository() { return userRepo; }
+
+    /** @return media repository */
     public MediaRepository mediaRepository() { return mediaRepo; }
+
+    /** @return loan repository */
     public LoanRepository loanRepository() { return loanRepo; }
+
+    /** @return time provider used in the system */
     public TimeProvider timeProvider() { return timeProvider; }
+
+    /** @return reminder service */
     public ReminderService reminderService() { return reminderService; }
+
+    /** @return authentication service */
     public AuthService authService() { return authService; }
+
+    /** @return library service */
     public LibraryService libraryService() { return libraryService; }
 
-    // Expose fakeEmailClient for manual inspection in tests or from Main if needed
+    /** @return fake email client (used for tests) */
     public FakeEmailClient fakeEmailClient() { return fakeEmailClient; }
 }

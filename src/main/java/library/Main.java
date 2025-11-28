@@ -8,17 +8,26 @@ import library.exception.ResourceNotFoundException;
 import library.service.AuthService;
 import library.service.LibraryService;
 
-
 import java.util.List;
 import java.util.Scanner;
 
+/**
+ * Main entry point for the console-based library application.
+ * Lets the user choose a role (Admin or Customer) and opens the related menu.
+ */
 public class Main {
+
+    /**
+     * Starts the library program.
+     *
+     * @param args command-line arguments (not used in this app)
+     */
     public static void main(String[] args) {
         AppConfig cfg = new AppConfig();
         AuthService auth = cfg.authService();
         LibraryService lib = cfg.libraryService();
 
-        
+        // Create a demo user for testing
         User demoUser = lib.registerUser("demo", "demo@example.com");
 
         Scanner sc = new Scanner(System.in);
@@ -52,6 +61,15 @@ public class Main {
         sc.close();
     }
 
+    /**
+     * Admin menu: login, logout, add media, search, send reminders,
+     * manage users, and show reports.
+     *
+     * @param sc   {@link Scanner} used to read input from console
+     * @param auth authentication service for admin login
+     * @param lib  main library service
+     * @param cfg  app configuration (for repositories and FakeEmailClient)
+     */
     private static void adminMenu(Scanner sc, AuthService auth, LibraryService lib, AppConfig cfg) {
         boolean back = false;
         while (!back) {
@@ -66,7 +84,7 @@ public class Main {
             System.out.println("7) Unregister User");
             System.out.println("8) Show All Users");
             System.out.println("9) Show All Media");
-            System.out.println("10) Show Borrowed Media (with overdue info)"); // <-- الجديد
+            System.out.println("10) Show Borrowed Media (with overdue info)");
             System.out.println("0) Back to Role Selection");
             System.out.print("Select: ");
             String opt = sc.nextLine().trim();
@@ -122,37 +140,42 @@ public class Main {
                         try {
                             auth.requireAdmin();
 
-                            // إرسال التذكيرات عبر ReminderService
-                            lib.getReminderService().sendReminders(cfg.loanRepository(), cfg.userRepository(), cfg.mediaRepository());
+                            // Send reminders using ReminderService
+                            lib.getReminderService().sendReminders(
+                                    cfg.loanRepository(),
+                                    cfg.userRepository(),
+                                    cfg.mediaRepository()
+                            );
                             System.out.println("Reminders processed.");
 
-                            // --- طباعة سجل FakeEmailClient (إن وُجد) للاختبار ---
+                            // Print FakeEmailClient log (if available) for testing
                             try {
-                                // AppConfig يحتوي على getter fakeEmailClient() حسب التعديل السابق
                                 if (cfg.fakeEmailClient() != null) {
                                     System.out.println("FakeEmailClient sent messages:");
                                     cfg.fakeEmailClient().getSent().forEach(s ->
-                                        System.out.println(" - to=" + s.to + " | subject=" + s.subject + " | body=" + s.body)
+                                            System.out.println(" - to=" + s.to
+                                                    + " | subject=" + s.subject
+                                                    + " | body=" + s.body)
                                     );
-                                    System.out.println("Total fake emails sent: " + cfg.fakeEmailClient().getSent().size());
+                                    System.out.println("Total fake emails sent: "
+                                            + cfg.fakeEmailClient().getSent().size());
                                 }
                             } catch (NoSuchMethodError | NullPointerException ex) {
-                                // إذا لم يكن AppConfig يحتوي getter fakeEmailClient() — تجاهل الطباعة بهدوء
+                                // ignore if method is missing or client is null
                             } catch (Exception ex) {
-                                System.out.println("Warning: could not inspect FakeEmailClient: " + ex.getMessage());
+                                System.out.println("Warning: could not inspect FakeEmailClient: "
+                                        + ex.getMessage());
                             }
 
                         } catch (Exception e) {
                             System.out.println("Error sending reminders: " + e.getMessage());
                         }
                         break;
-
-
                     case "7":
                         try {
                             System.out.print("User id to unregister: ");
                             String uid = sc.nextLine().trim();
-                            // Let the service enforce admin requirement and business rules
+                            // business rules are enforced inside the service
                             lib.unregisterUser(null, uid);
                             System.out.println("User unregistered.");
                         } catch (Exception e) {
@@ -161,10 +184,20 @@ public class Main {
                         break;
 
                     case "8":
-                        cfg.userRepository().findAll().forEach(u -> System.out.println(" - " + u.getId() + " | " + u.getName() + " | " + u.getEmail() + " | fine=" + u.getOutstandingFine()));
+                        cfg.userRepository().findAll().forEach(u ->
+                                System.out.println(" - " + u.getId()
+                                        + " | " + u.getName()
+                                        + " | " + u.getEmail()
+                                        + " | fine=" + u.getOutstandingFine())
+                        );
                         break;
                     case "9":
-                        cfg.mediaRepository().findAll().forEach(m -> System.out.println(" - " + m.getId() + " | " + m.getTitle() + " | available=" + m.isAvailable() + " | type=" + m.getMediaType()));
+                        cfg.mediaRepository().findAll().forEach(m ->
+                                System.out.println(" - " + m.getId()
+                                        + " | " + m.getTitle()
+                                        + " | available=" + m.isAvailable()
+                                        + " | type=" + m.getMediaType())
+                        );
                         break;
                     case "10":
                         try {
@@ -191,8 +224,13 @@ public class Main {
         }
     }
 
-
-
+    /**
+     * Customer menu: search, borrow, return, pay fines, and view simple info.
+     *
+     * @param sc       {@link Scanner} used to read user input
+     * @param lib      library service that performs the operations
+     * @param demoUser demo user created at startup (used as a simple example)
+     */
     private static void customerMenu(Scanner sc, LibraryService lib, User demoUser) {
         boolean back = false;
         while (!back) {
@@ -209,33 +247,33 @@ public class Main {
             String opt = sc.nextLine().trim();
             try {
                 switch (opt) {
-                case "1":
-                    // Ask for search type
-                    System.out.println("Search by:");
-                    System.out.println("  a) Title");
-                    System.out.println("  b) Author");
-                    System.out.println("  c) ISBN");
-                    System.out.print("Select (a/b/c): ");
-                    String stype = sc.nextLine().trim().toLowerCase();
-                    if ("a".equals(stype)) {
-                        System.out.print("Enter title (partial allowed): ");
-                        String titleQ = sc.nextLine().trim();
-                        List<Media> titleResults = lib.searchByTitle(titleQ);
-                        printMediaList(titleResults);
-                    } else if ("b".equals(stype)) {
-                        System.out.print("Enter author name: ");
-                        String authorQ = sc.nextLine().trim();
-                        List<Media> authorResults = lib.searchByAuthor(authorQ);
-                        printMediaList(authorResults);
-                    } else if ("c".equals(stype)) {
-                        System.out.print("Enter ISBN (exact): ");
-                        String isbnQ = sc.nextLine().trim();
-                        List<Media> isbnResults = lib.searchByIsbn(isbnQ);
-                        printMediaList(isbnResults);
-                    } else {
-                        System.out.println("Unknown search type.");
-                    }
-                    break;
+                    case "1":
+                        // Choose search type
+                        System.out.println("Search by:");
+                        System.out.println("  a) Title");
+                        System.out.println("  b) Author");
+                        System.out.println("  c) ISBN");
+                        System.out.print("Select (a/b/c): ");
+                        String stype = sc.nextLine().trim().toLowerCase();
+                        if ("a".equals(stype)) {
+                            System.out.print("Enter title (partial allowed): ");
+                            String titleQ = sc.nextLine().trim();
+                            List<Media> titleResults = lib.searchByTitle(titleQ);
+                            printMediaList(titleResults);
+                        } else if ("b".equals(stype)) {
+                            System.out.print("Enter author name: ");
+                            String authorQ = sc.nextLine().trim();
+                            List<Media> authorResults = lib.searchByAuthor(authorQ);
+                            printMediaList(authorResults);
+                        } else if ("c".equals(stype)) {
+                            System.out.print("Enter ISBN (exact): ");
+                            String isbnQ = sc.nextLine().trim();
+                            List<Media> isbnResults = lib.searchByIsbn(isbnQ);
+                            printMediaList(isbnResults);
+                        } else {
+                            System.out.println("Unknown search type.");
+                        }
+                        break;
                     case "2":
                         System.out.print("Your user id (demo user id: " + demoUser.getId() + "): ");
                         String uid = sc.nextLine().trim();
@@ -291,10 +329,13 @@ public class Main {
                     case "6":
                         System.out.print("Your user id (demo user id: " + demoUser.getId() + "): ");
                         String uidInfo = sc.nextLine().trim();
-                        lib.findLoansByUser(uidInfo); // just to keep examples light
-                        lib.getReminderService(); // no-op; just demonstrating calls kept out of business logic
-                        // fetch user from AppConfig's repo would be cleaner; demo shows minimal customer features
-                        System.out.println("Info: demo user id is " + demoUser.getId() + " email=" + demoUser.getEmail() + " outstandingFine=" + demoUser.getOutstandingFine());
+                        // Simple calls just as example, no extra logic
+                        lib.findLoansByUser(uidInfo);
+                        lib.getReminderService();
+                        System.out.println("Info: demo user id is "
+                                + demoUser.getId()
+                                + " email=" + demoUser.getEmail()
+                                + " outstandingFine=" + demoUser.getOutstandingFine());
                         break;
                     case "0":
                         back = true;
@@ -308,6 +349,11 @@ public class Main {
         }
     }
 
+    /**
+     * Prints a simple list of media items to the console.
+     *
+     * @param results list of media results; if null or empty, prints "No results."
+     */
     private static void printMediaList(List<Media> results) {
         if (results == null || results.isEmpty()) {
             System.out.println("No results.");
@@ -315,7 +361,10 @@ public class Main {
         }
         System.out.println("Results:");
         for (Media m : results) {
-            System.out.println(" - " + m.getId() + " | " + m.getTitle() + " | available=" + m.isAvailable() + " | type=" + m.getMediaType());
+            System.out.println(" - " + m.getId()
+                    + " | " + m.getTitle()
+                    + " | available=" + m.isAvailable()
+                    + " | type=" + m.getMediaType());
         }
     }
 }

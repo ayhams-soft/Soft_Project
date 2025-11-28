@@ -13,17 +13,20 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * ReminderService collects overdue loans and notifies registered notifiers.
+ * Service responsible for building overdue reports and sending reminders.
  *
- * Updated behavior:
- * - sendReminders(...) will send a single message per user that includes both:
- *      number of overdue BOOKs and number of overdue CDs.
- * - Message body format:
- *      "You have X overdue book(s) and Y overdue CD(s)."
+ * Behavior:
+ * <ul>
+ *     <li>Collects overdue loans based on the current date.</li>
+ *     <li>Aggregates them per user.</li>
+ *     <li>Notifies all registered notifiers with a simple message.</li>
+ * </ul>
  *
- * Notifier is a simple functional interface so you can register:
- *  - a fake notifier for testing (records messages),
- *  - or an adapter that delegates to an EmailClient to actually send emails.
+ * For reminders:
+ * <ul>
+ *     <li>Each user gets a single message.</li>
+ *     <li>Message format: {@code "You have X overdue book(s) and Y overdue CD(s)."}</li>
+ * </ul>
  */
 public class ReminderService {
 
@@ -38,14 +41,24 @@ public class ReminderService {
     private final List<Notifier> notifiers = new ArrayList<>();
     private final TimeProvider timeProvider;
 
+    /**
+     * Creates a new ReminderService.
+     *
+     * @param timeProvider provider used to get the current date
+     */
     public ReminderService(TimeProvider timeProvider) {
         this.timeProvider = timeProvider;
     }
 
     /**
-     * Register a Notifier (Observer). Examples:
-     *  - registerNotifier((user, msg) -> emailClient.send(user.getEmail(), "Library reminder", msg));
-     *  - registerNotifier((user, msg) -> fakeRecorder.record(user.getEmail(), msg));
+     * Registers a new notifier (observer).
+     * <p>Examples:</p>
+     * <ul>
+     *     <li>{@code registerNotifier((user, msg) -> emailClient.send(user.getEmail(), "Library reminder", msg));}</li>
+     *     <li>{@code registerNotifier((user, msg) -> fakeRecorder.record(user.getEmail(), msg));}</li>
+     * </ul>
+     *
+     * @param notifier the notifier implementation to add
      */
     public void registerNotifier(Notifier notifier) {
         if (notifier != null) {
@@ -54,18 +67,21 @@ public class ReminderService {
     }
 
     /**
-     * Send reminders to users that have overdue BOOK or CD loans.
+     * Sends reminders to users that have overdue BOOK or CD loans.
+     * <p>
+     * For each user, it computes:
+     * <ul>
+     *     <li>number of overdue BOOKs</li>
+     *     <li>number of overdue CDs</li>
+     * </ul>
+     * Then sends a single message like:
+     * <pre>
+     * "You have X overdue book(s) and Y overdue CD(s)."
+     * </pre>
      *
-     * New behavior: for each user we compute:
-     *  - number of overdue BOOKs
-     *  - number of overdue CDs
-     *
-     * Then we send a single message:
-     *   "You have X overdue book(s) and Y overdue CD(s)."
-     *
-     * @param loanRepo  repository to query loans
-     * @param userRepo  repository to query users
-     * @param mediaRepo repository to query media (used to check media type)
+     * @param loanRepo  repository used to query loans
+     * @param userRepo  repository used to query users
+     * @param mediaRepo repository used to query media (and check media type)
      */
     public void sendReminders(LoanRepository loanRepo, UserRepository userRepo, MediaRepository mediaRepo) {
         LocalDate today = timeProvider.today();
@@ -88,8 +104,10 @@ public class ReminderService {
             Optional<Media> maybeMedia = mediaRepo.findById(l.getMediaId());
             String userId = l.getUserId();
             if (!maybeMedia.isPresent()) continue;
+
             Media media = maybeMedia.get();
             String type = media.getMediaType();
+
             if ("BOOK".equals(type)) {
                 bookCounts.put(userId, bookCounts.getOrDefault(userId, 0) + 1);
             } else if ("CD".equals(type)) {
@@ -108,6 +126,7 @@ public class ReminderService {
         for (String userId : userIds) {
             Optional<User> maybeUser = userRepo.findById(userId);
             if (!maybeUser.isPresent()) continue;
+
             User user = maybeUser.get();
             if (user.getEmail() == null || user.getEmail().trim().isEmpty()) continue;
 
@@ -121,34 +140,62 @@ public class ReminderService {
                     notifier.notify(user, message);
                 } catch (Exception ex) {
                     // Log to stderr to avoid interrupting other notifications
-                    System.err.println("ReminderService: notifier failed for user " + userId + " : " + ex.getMessage());
+                    System.err.println("ReminderService: notifier failed for user "
+                            + userId + " : " + ex.getMessage());
                 }
             }
         }
     }
 
     /**
-     * Build an OverdueReport mapping user -> counts and fines using strategies.
-     * Kept as before (mixed media supported): counts = number of overdue items (books+cds),
-     * sums = computed fines per media type using provided strategies.
+     * Builds an {@link OverdueReport} that maps each user to:
+     * <ul>
+     *     <li>number of overdue items (books + CDs)</li>
+     *     <li>total fine based on media type and fine strategies</li>
+     * </ul>
+     *
+     * @param loanRepo  repository to read loans from
+     * @param userRepo  repository to read users from (kept for future use/extensions)
+     * @param mediaRepo repository to read media and detect types
+     * @param bookFine  fine strategy used for books
+     * @param cdFine    fine strategy used for CDs
+     * @return an OverdueReport containing counts and fine totals per user
      */
-    public OverdueReport buildReport(LoanRepository loanRepo, UserRepository userRepo, MediaRepository mediaRepo, library.strategy.FineStrategy bookFine, library.strategy.FineStrategy cdFine) {
+    public OverdueReport buildReport(LoanRepository loanRepo,
+                                     UserRepository userRepo,
+                                     MediaRepository mediaRepo,
+                                     library.strategy.FineStrategy bookFine,
+                                     library.strategy.FineStrategy cdFine) {
+
         LocalDate today = timeProvider.today();
-        List<Loan> overdue = loanRepo.findAll().stream().filter(l -> l.isOverdue(today)).collect(Collectors.toList());
+        List<Loan> overdue = loanRepo.findAll().stream()
+                .filter(l -> l.isOverdue(today))
+                .collect(Collectors.toList());
+
         Map<String, Integer> counts = new HashMap<>();
         Map<String, Integer> sums = new HashMap<>();
+
         for (Loan l : overdue) {
             String uid = l.getUserId();
+
+            // Count of overdue items
             counts.put(uid, counts.getOrDefault(uid, 0) + 1);
+
             Media m = mediaRepo.findById(l.getMediaId()).orElse(null);
             int overdueDays = l.overdueDays(today);
             int fine = 0;
+
             if (m != null) {
-                if ("BOOK".equals(m.getMediaType())) fine = bookFine.calculateFine(overdueDays);
-                else if ("CD".equals(m.getMediaType())) fine = cdFine.calculateFine(overdueDays);
+                if ("BOOK".equals(m.getMediaType())) {
+                    fine = bookFine.calculateFine(overdueDays);
+                } else if ("CD".equals(m.getMediaType())) {
+                    fine = cdFine.calculateFine(overdueDays);
+                }
             }
+
             sums.put(uid, sums.getOrDefault(uid, 0) + fine);
         }
+
         return new OverdueReport(counts, sums);
     }
 }
