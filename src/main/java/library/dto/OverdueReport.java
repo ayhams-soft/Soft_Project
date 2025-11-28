@@ -3,22 +3,33 @@ package library.dto;
 import java.util.Map;
 
 /**
- * Overdue report mapping userId to (overdueCount, totalFine)
+ * DTO representing aggregated overdue information per user:
+ *
+ * - overdueCounts : عدد العناصر المتأخرة (كتب + CDs) لكل مستخدم
+ * - fineTotals    : مجموع الغرامات لكل مستخدم
+ *
+ * يستعمل في buildReport داخل ReminderService.
  */
 public class OverdueReport {
-    private final Map<String, Integer> overdueCounts;
-    private final Map<String, Integer> fineSums;
 
-    public OverdueReport(Map<String, Integer> overdueCounts, Map<String, Integer> fineSums) {
+    // userId -> عدد العناصر المتأخرة
+    private final Map<String, Integer> overdueCounts;
+
+    // userId -> مجموع الغرامات
+    private final Map<String, Integer> fineTotals;
+
+    public OverdueReport(Map<String, Integer> overdueCounts, Map<String, Integer> fineTotals) {
         this.overdueCounts = overdueCounts;
-        this.fineSums = fineSums;
+        this.fineTotals = fineTotals;
     }
 
+    /** إرجاع خريطة عدد العناصر المتأخرة لكل مستخدم */
     public Map<String, Integer> getOverdueCounts() {
         return overdueCounts;
     }
 
-    public Map<String, Integer> getFineSums() {
-        return fineSums;
+    /** إرجاع خريطة مجموع الغرامات لكل مستخدم */
+    public Map<String, Integer> getFineTotals() {
+        return fineTotals;
     }
 }

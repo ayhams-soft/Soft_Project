@@ -4,6 +4,7 @@ import library.domain.Admin;
 import library.domain.User;
 import library.domain.media.Book;
 import library.domain.media.CD;
+import library.notifications.FakeEmailClient;
 import library.repository.*;
 import library.service.*;
 import library.strategy.BookFineStrategy;
@@ -11,7 +12,7 @@ import library.strategy.CDFineStrategy;
 
 /**
  * Application configuration — dependency wiring + seed data.
- * Also registers a Console Notifier to print reminder messages during runtime.
+ * Registers both Console Notifier and a FakeEmailClient for test-mode recording.
  */
 public class AppConfig {
 
@@ -20,7 +21,13 @@ public class AppConfig {
     private final InMemoryMediaRepository mediaRepo = new InMemoryMediaRepository();
     private final InMemoryLoanRepository loanRepo = new InMemoryLoanRepository();
     private final TimeProvider timeProvider = new SystemTimeProvider();
+
+    // ReminderService constructed with timeProvider
     private final ReminderService reminderService = new ReminderService(timeProvider);
+
+    // Fake email client for test mode (records sent messages)
+    private final FakeEmailClient fakeEmailClient = new FakeEmailClient();
+
     private final AuthService authService = new AuthService(adminRepo);
     private final LibraryService libraryService =
             new LibraryService(userRepo, mediaRepo, loanRepo, reminderService, timeProvider,
@@ -30,7 +37,7 @@ public class AppConfig {
         seedAdmins();
         seedUsers();
         seedMedia();
-        registerConsoleNotifier(); // register notifier so admin sees reminders on console
+        registerNotifiers(); // register notifiers: console + fake email
     }
 
     /** Seed admin accounts */
@@ -61,14 +68,21 @@ public class AppConfig {
         mediaRepo.save(new CD("Rock Legends", "Pink Floyd"));
     }
 
-    /** Register a simple console notifier to print reminders */
-    private void registerConsoleNotifier() {
-        // prints reminders to standard output; helpful for manual testing by admin
+    /** Register console notifier + fake email notifier */
+    private void registerNotifiers() {
+        // Console notifier: prints reminders to standard output; helpful for manual testing by admin
         reminderService.registerNotifier((user, message) -> {
             if (user != null) {
                 System.out.println("Reminder -> " + user.getEmail() + " : " + message);
             } else {
                 System.out.println("Reminder -> unknown user : " + message);
+            }
+        });
+
+        // FakeEmail notifier: delegates to FakeEmailClient (records messages)
+        reminderService.registerNotifier((user, message) -> {
+            if (user != null && user.getEmail() != null && !user.getEmail().trim().isEmpty()) {
+                fakeEmailClient.send(user.getEmail(), "Library reminder", message);
             }
         });
     }
@@ -82,4 +96,7 @@ public class AppConfig {
     public ReminderService reminderService() { return reminderService; }
     public AuthService authService() { return authService; }
     public LibraryService libraryService() { return libraryService; }
+
+    // Expose fakeEmailClient for manual inspection in tests or from Main if needed
+    public FakeEmailClient fakeEmailClient() { return fakeEmailClient; }
 }

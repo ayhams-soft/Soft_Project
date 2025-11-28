@@ -14,9 +14,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * LibraryService: core operations.
- */
+
 public class LibraryService {
 
     private final UserRepository userRepo;
@@ -59,17 +57,12 @@ public class LibraryService {
         mediaRepo.save(cd);
     }
 
-    /**
-     * Generic search (keeps previous behavior).
-     */
+    
     public List<Media> search(String q) {
         return mediaRepo.search(q == null ? "" : q);
     }
 
-    /**
-     * Search by title (partial match, case-insensitive).
-     * Returns all media whose title contains the query.
-     */
+    
     public List<Media> searchByTitle(String title) {
         String q = title == null ? "" : title.toLowerCase();
         return mediaRepo.findAll().stream()
@@ -77,13 +70,7 @@ public class LibraryService {
                 .collect(java.util.stream.Collectors.toList());
     }
 
-    /**
-     * Search by author:
-     * - For Book: match author field (case-insensitive, partial)
-     * - For CD: match artist field (optional) — currently includes CDs whose artist matches the query
-     *
-     * Returns all matching media (books & optionally CDs) for the given author/artist.
-     */
+    
     public List<Media> searchByAuthor(String author) {
         String q = author == null ? "" : author.toLowerCase();
         return mediaRepo.findAll().stream()
@@ -115,11 +102,10 @@ public class LibraryService {
     }
 
 
-    public void borrow(String userId, String mediaId) {
+    /* public void borrow(String userId, String mediaId) {
         User user = userRepo.findById(userId).orElseThrow(() -> new ResourceNotFoundException("user not found"));
         Media media = mediaRepo.findById(mediaId).orElseThrow(() -> new ResourceNotFoundException("media not found"));
-        // business rules
-        // block if unpaid fines
+        
         if (user.getOutstandingFine() > 0) throw new BusinessRuleException("User has outstanding fines");
         // block if user has overdue loans
         List<Loan> userLoans = loanRepo.findByUserId(userId);
@@ -141,6 +127,45 @@ public class LibraryService {
         loanRepo.save(loan);
         media.setAvailable(false);
     }
+       */
+        public void borrow(String userId, String mediaId) {
+        User user = userRepo.findById(userId).orElseThrow(() -> new ResourceNotFoundException("user not found"));
+        Media media = mediaRepo.findById(mediaId).orElseThrow(() -> new ResourceNotFoundException("media not found"));
+        // business rules
+        // block if unpaid fines
+        if (user.getOutstandingFine() > 0) throw new BusinessRuleException("User has outstanding fines");
+        // block if user has overdue loans
+        List<Loan> userLoans = loanRepo.findByUserId(userId);
+        for (Loan l : userLoans) {
+            if (l.isOverdue(timeProvider.today())) throw new BusinessRuleException("User has overdue loans");
+        }
+        if (!media.isAvailable()) throw new BusinessRuleException("Media not available");
+
+        // ====== BACKDATE CONFIGURATION ======
+        // عدد الأيام السابقة التي تريد جعل تاريخ الاستعارة يبدأ منها.
+        // اجعل القيمة صفر لو تريد السلوك الافتراضي (التاريخ هو اليوم).
+        final int BACKDATE_DAYS = 30; // <-- غَيّر الرقم هنا حسب حاجتك
+        // ====================================
+
+        // now = تاريخ بداية الاقتراض (سنقوم بجعله في الماضي حسب BACKDATE_DAYS)
+        LocalDate now = timeProvider.today().minusDays(BACKDATE_DAYS);
+
+        // احتساب تاريخ الاستحقاق بناءً على نوع الوسط (نحسبه من 'now' وليس من اليوم الفعلي)
+        LocalDate due;
+        if ("BOOK".equals(media.getMediaType())) {
+            due = now.plusDays(28);
+        } else if ("CD".equals(media.getMediaType())) {
+            due = now.plusDays(7);
+        } else {
+            due = now.plusDays(28);
+        }
+
+        Loan loan = new Loan(userId, media.getId(), now, due);
+        loanRepo.save(loan);
+        media.setAvailable(false);
+    }
+
+    
 
     public void returnMedia(String loanId) {
         Loan loan = loanRepo.findById(loanId).orElseThrow(() -> new ResourceNotFoundException("loan not found"));
@@ -168,32 +193,43 @@ public class LibraryService {
     }
 
     public void unregisterUser(String adminUser, String userId) {
-        // admin-only: require auth
-        if (!authService.isLoggedIn()) throw new NotAuthorizedException("Admin required");
-        User u = userRepo.findById(userId).orElseThrow(() -> new ResourceNotFoundException("user not found"));
-        // check active loans
+        // Only admins can unregister
+        authService.requireAdmin();
+
+        User u = userRepo.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("user not found"));
+
+        // Users with active loans cannot be unregistered
         List<Loan> loans = loanRepo.findByUserId(userId);
-        boolean hasActive = loans.stream().anyMatch(l -> !l.isReturned());
-        if (hasActive) throw new BusinessRuleException("User has active loans");
-        if (u.getOutstandingFine() > 0) throw new BusinessRuleException("User has unpaid fines");
+        boolean hasActiveLoans = loans.stream().anyMatch(l -> !l.isReturned());
+        if (hasActiveLoans) {
+            throw new BusinessRuleException("User cannot be unregistered while having active loans");
+        }
+
+        // Users with unpaid fines cannot be unregistered
+        if (u.getOutstandingFine() > 0) {
+            throw new BusinessRuleException("User cannot be unregistered while having unpaid fines");
+        }
+
+        // All good → delete user
         userRepo.delete(u);
     }
 
+
     public ReminderService getReminderService() { return reminderService; }
 
-    // helper to find user's loans
+    
     public List<Loan> findLoansByUser(String userId) { return loanRepo.findByUserId(userId); }
     
-    /**
-     * Builds a human-readable report of all currently borrowed media (non-returned loans).
-     * Each line contains: LoanId | MediaId - Title | UserId (email) | dueDate | status (DUE in N days / OVERDUE by N days)
-     */
+    
     public java.util.List<String> getBorrowedMediaReport() {
         java.time.LocalDate today = timeProvider.today();
         java.util.List<String> report = new java.util.ArrayList<>();
-        // iterate all loans
+        int totalFine = 0;
+
+        
         for (library.domain.Loan loan : loanRepo.findAll()) {
-            if (loan.isReturned()) continue; // only active loans
+            if (loan.isReturned()) continue;
             String loanId = loan.getId();
             String uid = loan.getUserId();
             String mid = loan.getMediaId();
@@ -204,19 +240,43 @@ public class LibraryService {
             String mediaPart = maybeMedia.map(m -> m.getId() + " - " + m.getTitle()).orElse(mid);
 
             String status;
+            int loanFine = 0;
             if (loan.isOverdue(today)) {
                 int days = loan.overdueDays(today);
                 status = "OVERDUE by " + days + " day(s)";
+
+                
+                if (maybeMedia.isPresent()) {
+                    library.domain.media.Media media = maybeMedia.get();
+                    if ("BOOK".equals(media.getMediaType())) {
+                        loanFine = bookFine.calculateFine(days);
+                    } else if ("CD".equals(media.getMediaType())) {
+                        loanFine = cdFine.calculateFine(days);
+                    } else {
+                      
+                        loanFine = bookFine.calculateFine(days);
+                    }
+                } else {
+                    
+                    loanFine = 0;
+                }
             } else {
-                // days until due = dueDate - today
+                
                 long daysLeft = java.time.temporal.ChronoUnit.DAYS.between(today, loan.getDueDate());
                 status = "DUE in " + daysLeft + " day(s)";
             }
 
-            String line = String.format("%s | %s | %s | due=%s | %s",
-                    loanId, mediaPart, userPart, loan.getDueDate().toString(), status);
+            totalFine += loanFine;
+
+            String finePart = loanFine > 0 ? (" | fine=" + loanFine) : "";
+            String line = String.format("%s | %s | %s | due=%s | %s%s",
+                    loanId, mediaPart, userPart, loan.getDueDate().toString(), status, finePart);
             report.add(line);
         }
+
+        
+        report.add(String.format("TOTAL OUTSTANDING FINE (for active loans): %d", totalFine));
+
         return report;
     }
 

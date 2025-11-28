@@ -18,7 +18,7 @@ public class Main {
         AuthService auth = cfg.authService();
         LibraryService lib = cfg.libraryService();
 
-        // seed a demo user for convenience
+        
         User demoUser = lib.registerUser("demo", "demo@example.com");
 
         Scanner sc = new Scanner(System.in);
@@ -121,24 +121,45 @@ public class Main {
                     case "6":
                         try {
                             auth.requireAdmin();
+
+                            // إرسال التذكيرات عبر ReminderService
                             lib.getReminderService().sendReminders(cfg.loanRepository(), cfg.userRepository(), cfg.mediaRepository());
                             System.out.println("Reminders processed.");
+
+                            // --- طباعة سجل FakeEmailClient (إن وُجد) للاختبار ---
+                            try {
+                                // AppConfig يحتوي على getter fakeEmailClient() حسب التعديل السابق
+                                if (cfg.fakeEmailClient() != null) {
+                                    System.out.println("FakeEmailClient sent messages:");
+                                    cfg.fakeEmailClient().getSent().forEach(s ->
+                                        System.out.println(" - to=" + s.to + " | subject=" + s.subject + " | body=" + s.body)
+                                    );
+                                    System.out.println("Total fake emails sent: " + cfg.fakeEmailClient().getSent().size());
+                                }
+                            } catch (NoSuchMethodError | NullPointerException ex) {
+                                // إذا لم يكن AppConfig يحتوي getter fakeEmailClient() — تجاهل الطباعة بهدوء
+                            } catch (Exception ex) {
+                                System.out.println("Warning: could not inspect FakeEmailClient: " + ex.getMessage());
+                            }
+
                         } catch (Exception e) {
                             System.out.println("Error sending reminders: " + e.getMessage());
                         }
                         break;
 
+
                     case "7":
                         try {
-                            auth.requireAdmin();
                             System.out.print("User id to unregister: ");
                             String uid = sc.nextLine().trim();
-                            lib.unregisterUser(auth.isLoggedIn() ? "admin" : null, uid);
+                            // Let the service enforce admin requirement and business rules
+                            lib.unregisterUser(null, uid);
                             System.out.println("User unregistered.");
                         } catch (Exception e) {
                             System.out.println("Cannot unregister: " + e.getMessage());
                         }
                         break;
+
                     case "8":
                         cfg.userRepository().findAll().forEach(u -> System.out.println(" - " + u.getId() + " | " + u.getName() + " | " + u.getEmail() + " | fine=" + u.getOutstandingFine()));
                         break;
