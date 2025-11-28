@@ -102,7 +102,7 @@ public class LibraryService {
     }
 
 
-    /* public void borrow(String userId, String mediaId) {
+     public void borrow(String userId, String mediaId) {
         User user = userRepo.findById(userId).orElseThrow(() -> new ResourceNotFoundException("user not found"));
         Media media = mediaRepo.findById(mediaId).orElseThrow(() -> new ResourceNotFoundException("media not found"));
         
@@ -127,7 +127,7 @@ public class LibraryService {
         loanRepo.save(loan);
         media.setAvailable(false);
     }
-       */
+     /* 
         public void borrow(String userId, String mediaId) {
         User user = userRepo.findById(userId).orElseThrow(() -> new ResourceNotFoundException("user not found"));
         Media media = mediaRepo.findById(mediaId).orElseThrow(() -> new ResourceNotFoundException("media not found"));
@@ -164,7 +164,7 @@ public class LibraryService {
         loanRepo.save(loan);
         media.setAvailable(false);
     }
-
+*/
     
 
     public void returnMedia(String loanId) {
