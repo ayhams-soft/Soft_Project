@@ -1,0 +1,10 @@
+library
+library.domain
+library.domain.media
+library.dto
+library.exception
+library.notifications
+library.repository
+library.service
+library.strategy
+library1
