@@ -39,12 +39,10 @@ jobs:
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
 
-      - name: Build and analyze
+           - name: Build and analyze
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN2023 }}
-        run: >
-          mvn -B jacoco:prepare-agent verify
-          org.sonarsource.scanner.maven:sonar-maven-plugin:sonar
-          jacoco:report
-          -Dsonar.coverage.exclusions=**/main.java
+        run: |
+          mvn -B clean verify jacoco:report
+          mvn -B sonar:sonar
