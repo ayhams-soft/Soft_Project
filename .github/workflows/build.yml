@@ -2,15 +2,12 @@ name: Build and Analyze
 
 on:
   push:
-    branches:
-      - main    # <- غيّر إلى master إذا كان فرعك master
+    branches: [ main ]     # غيّر إلى master إن لزم
   pull_request:
-    branches:
-      - main    # <- غيّر إلى master إذا كان فرعك master
+    branches: [ main ]
 
 jobs:
   build:
-    name: Build and SonarCloud Scan
     runs-on: ubuntu-latest
 
     steps:
@@ -19,11 +16,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up JDK 17
+      - name: Set up JDK 11
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
-          java-version: '17'   # <- غيّره إلى '8' لو احتجت مطابقة source=1.8
+          java-version: '11'   # غيّر إلى '8' لو عندك source/target = 1.8 في pom.xml
 
       - name: Cache Maven packages
         uses: actions/cache@v3
@@ -36,12 +33,12 @@ jobs:
       - name: Build with Maven
         run: mvn -B verify --file pom.xml
 
-      - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@master
-        with:
-          args: >
-            -Dsonar.projectKey=ayhams-soft_Soft_Project
-            -Dsonar.organization=ayhams-soft
+      - name: Run Sonar using Maven
+        run: |
+          mvn sonar:sonar \
+            -Dsonar.projectKey=ayhams-soft_Soft_Project \
+            -Dsonar.organization=ayhams-soft \
+            -Dsonar.host.url=https://sonarcloud.io \
+            -Dsonar.login=${{ secrets.SONAR_TOKEN }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}   # <- تأكد من اسم الـ secret هنا
