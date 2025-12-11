@@ -16,6 +16,10 @@ import java.util.Scanner;
  */
 public class Main {
 
+    // constants to avoid repeating literals
+    private static final String DEMO_USER_PROMPT_PREFIX = "Your user id (demo user id: ";
+    private static final String ERROR_PREFIX = "Error: ";
+
     /**
      * Starts the library program.
      *
@@ -60,15 +64,8 @@ public class Main {
         sc.close();
     }
 
-    /**
-     * Admin menu: login, logout, add media, search, send reminders,
-     * manage users, and show reports.
-     *
-     * @param sc   {@link Scanner} used to read input from console
-     * @param auth authentication service for admin login
-     * @param lib  main library service
-     * @param cfg  app configuration (for repositories and FakeEmailClient)
-     */
+    // ======================= ADMIN MENU (نفسه) =======================
+
     private static void adminMenu(Scanner sc, AuthService auth, LibraryService lib, AppConfig cfg) {
         boolean back = false;
         while (!back) {
@@ -139,7 +136,6 @@ public class Main {
                         try {
                             auth.requireAdmin();
 
-                            // Send reminders using ReminderService
                             lib.getReminderService().sendReminders(
                                     cfg.loanRepository(),
                                     cfg.userRepository(),
@@ -147,7 +143,6 @@ public class Main {
                             );
                             System.out.println("Reminders processed.");
 
-                            // Print FakeEmailClient log (if available) for testing
                             try {
                                 if (cfg.fakeEmailClient() != null) {
                                     System.out.println("FakeEmailClient sent messages:");
@@ -174,7 +169,6 @@ public class Main {
                         try {
                             System.out.print("User id to unregister: ");
                             String uid = sc.nextLine().trim();
-                            // business rules are enforced inside the service
                             lib.unregisterUser(null, uid);
                             System.out.println("User unregistered.");
                         } catch (Exception e) {
@@ -191,7 +185,7 @@ public class Main {
                         );
                         break;
                     case "9":
-                        cfg.mediaRepository().findAll().forEach(m -> 
+                        cfg.mediaRepository().findAll().forEach(m ->
                                 System.out.println(" - " + m.getId()
                                         + " | " + m.getTitle()
                                         + " | available=" + m.isAvailable()
@@ -223,13 +217,8 @@ public class Main {
         }
     }
 
-    /**
-     * Customer menu: search, borrow, return, pay fines, and view simple info.
-     *
-     * @param sc       {@link Scanner} used to read user input
-     * @param lib      library service that performs the operations
-     * @param demoUser demo user created at startup (used as a simple example)
-     */
+    // ======================= CUSTOMER MENU بعد التفكيك =======================
+
     private static void customerMenu(Scanner sc, LibraryService lib, User demoUser) {
         boolean back = false;
         while (!back) {
@@ -247,94 +236,22 @@ public class Main {
             try {
                 switch (opt) {
                     case "1":
-                        // Choose search type
-                        System.out.println("Search by:");
-                        System.out.println("  a) Title");
-                        System.out.println("  b) Author");
-                        System.out.println("  c) ISBN");
-                        System.out.print("Select (a/b/c): ");
-                        String stype = sc.nextLine().trim().toLowerCase();
-                        if ("a".equals(stype)) {
-                            System.out.print("Enter title (partial allowed): ");
-                            String titleQ = sc.nextLine().trim();
-                            List<Media> titleResults = lib.searchByTitle(titleQ);
-                            printMediaList(titleResults);
-                        } else if ("b".equals(stype)) {
-                            System.out.print("Enter author name: ");
-                            String authorQ = sc.nextLine().trim();
-                            List<Media> authorResults = lib.searchByAuthor(authorQ);
-                            printMediaList(authorResults);
-                        } else if ("c".equals(stype)) {
-                            System.out.print("Enter ISBN (exact): ");
-                            String isbnQ = sc.nextLine().trim();
-                            List<Media> isbnResults = lib.searchByIsbn(isbnQ);
-                            printMediaList(isbnResults);
-                        } else {
-                            System.out.println("Unknown search type.");
-                        }
+                        handleCustomerSearch(sc, lib);
                         break;
                     case "2":
-                        System.out.print("Your user id (demo user id: " + demoUser.getId() + "): ");
-                        String uid = sc.nextLine().trim();
-                        System.out.print("Media id: ");
-                        String mid = sc.nextLine().trim();
-                        try {
-                            lib.borrow(uid, mid);
-                            System.out.println("Borrowed successfully.");
-                        } catch (BusinessRuleException bre) {
-                            System.out.println("Cannot borrow: " + bre.getMessage());
-                        } catch (ResourceNotFoundException rnfe) {
-                            System.out.println("Resource not found: " + rnfe.getMessage());
-                        } catch (Exception e) {
-                            System.out.println("Error: " + e.getMessage());
-                        }
+                        handleCustomerBorrow(sc, lib, demoUser);
                         break;
                     case "3":
-                        System.out.print("Loan id: ");
-                        String lid = sc.nextLine().trim();
-                        try {
-                            lib.returnMedia(lid);
-                            System.out.println("Returned. Any overdue fines applied to your account.");
-                        } catch (ResourceNotFoundException rnfe) {
-                            System.out.println("Loan not found.");
-                        } catch (Exception e) {
-                            System.out.println("Error: " + e.getMessage());
-                        }
+                        handleCustomerReturn(sc, lib);
                         break;
                     case "4":
-                        System.out.print("Your user id: ");
-                        String pu = sc.nextLine().trim();
-                        System.out.print("Amount (integer NIS): ");
-                        String amtS = sc.nextLine().trim();
-                        try {
-                            int amount = Integer.parseInt(amtS);
-                            lib.payFine(pu, amount);
-                            System.out.println("Payment applied.");
-                        } catch (NumberFormatException nfe) {
-                            System.out.println("Invalid amount.");
-                        } catch (ResourceNotFoundException rnfe) {
-                            System.out.println("User not found.");
-                        } catch (Exception e) {
-                            System.out.println("Error: " + e.getMessage());
-                        }
+                        handleCustomerPayFine(sc, lib);
                         break;
                     case "5":
-                        System.out.print("Your user id (demo user id: " + demoUser.getId() + "): ");
-                        String userId = sc.nextLine().trim();
-                        List<?> loans = lib.findLoansByUser(userId);
-                        System.out.println("Loans count: " + loans.size());
-                        loans.forEach(l -> System.out.println(" - " + l));
+                        handleCustomerShowLoans(sc, lib, demoUser);
                         break;
                     case "6":
-                        System.out.print("Your user id (demo user id: " + demoUser.getId() + "): ");
-                        String uidInfo = sc.nextLine().trim();
-                        // Simple calls just as example, no extra logic
-                        lib.findLoansByUser(uidInfo);
-                        lib.getReminderService();
-                        System.out.println("Info: demo user id is "
-                                + demoUser.getId()
-                                + " email=" + demoUser.getEmail()
-                                + " outstandingFine=" + demoUser.getOutstandingFine());
+                        handleCustomerShowInfo(sc, lib, demoUser);
                         break;
                     case "0":
                         back = true;
@@ -348,11 +265,110 @@ public class Main {
         }
     }
 
-    /**
-     * Prints a simple list of media items to the console.
-     *
-     * @param results list of media results; if null or empty, prints "No results."
-     */
+    // ====== دوال صغيرة لكل خيار من خيارات الزبون ======
+
+    private static void handleCustomerSearch(Scanner sc, LibraryService lib) {
+        System.out.println("Search by:");
+        System.out.println("  a) Title");
+        System.out.println("  b) Author");
+        System.out.println("  c) ISBN");
+        System.out.print("Select (a/b/c): ");
+        String stype = sc.nextLine().trim().toLowerCase();
+
+        try {
+            if ("a".equals(stype)) {
+                System.out.print("Enter title (partial allowed): ");
+                String titleQ = sc.nextLine().trim();
+                List<Media> titleResults = lib.searchByTitle(titleQ);
+                printMediaList(titleResults);
+            } else if ("b".equals(stype)) {
+                System.out.print("Enter author name: ");
+                String authorQ = sc.nextLine().trim();
+                List<Media> authorResults = lib.searchByAuthor(authorQ);
+                printMediaList(authorResults);
+            } else if ("c".equals(stype)) {
+                System.out.print("Enter ISBN (exact): ");
+                String isbnQ = sc.nextLine().trim();
+                List<Media> isbnResults = lib.searchByIsbn(isbnQ);
+                printMediaList(isbnResults);
+            } else {
+                System.out.println("Unknown search type.");
+            }
+        } catch (Exception e) {
+            System.out.println(ERROR_PREFIX + e.getMessage());
+        }
+    }
+
+    private static void handleCustomerBorrow(Scanner sc, LibraryService lib, User demoUser) {
+        System.out.print(DEMO_USER_PROMPT_PREFIX + demoUser.getId() + "): ");
+        String uid = sc.nextLine().trim();
+        System.out.print("Media id: ");
+        String mid = sc.nextLine().trim();
+        try {
+            lib.borrow(uid, mid);
+            System.out.println("Borrowed successfully.");
+        } catch (BusinessRuleException bre) {
+            System.out.println("Cannot borrow: " + bre.getMessage());
+        } catch (ResourceNotFoundException rnfe) {
+            System.out.println("Resource not found: " + rnfe.getMessage());
+        } catch (Exception e) {
+            System.out.println(ERROR_PREFIX + e.getMessage());
+        }
+    }
+
+    private static void handleCustomerReturn(Scanner sc, LibraryService lib) {
+        System.out.print("Loan id: ");
+        String lid = sc.nextLine().trim();
+        try {
+            lib.returnMedia(lid);
+            System.out.println("Returned. Any overdue fines applied to your account.");
+        } catch (ResourceNotFoundException rnfe) {
+            System.out.println("Loan not found.");
+        } catch (Exception e) {
+            System.out.println(ERROR_PREFIX + e.getMessage());
+        }
+    }
+
+    private static void handleCustomerPayFine(Scanner sc, LibraryService lib) {
+        System.out.print("Your user id: ");
+        String pu = sc.nextLine().trim();
+        System.out.print("Amount (integer NIS): ");
+        String amtS = sc.nextLine().trim();
+        try {
+            int amount = Integer.parseInt(amtS);
+            lib.payFine(pu, amount);
+            System.out.println("Payment applied.");
+        } catch (NumberFormatException nfe) {
+            System.out.println("Invalid amount.");
+        } catch (ResourceNotFoundException rnfe) {
+            System.out.println("User not found.");
+        } catch (Exception e) {
+            System.out.println(ERROR_PREFIX + e.getMessage());
+        }
+    }
+
+    private static void handleCustomerShowLoans(Scanner sc, LibraryService lib, User demoUser) {
+        System.out.print(DEMO_USER_PROMPT_PREFIX + demoUser.getId() + "): ");
+        String userId = sc.nextLine().trim();
+        List<?> loans = lib.findLoansByUser(userId);
+        System.out.println("Loans count: " + loans.size());
+        loans.forEach(l -> System.out.println(" - " + l));
+    }
+
+    private static void handleCustomerShowInfo(Scanner sc, LibraryService lib, User demoUser) {
+        System.out.print(DEMO_USER_PROMPT_PREFIX + demoUser.getId() + "): ");
+        String uidInfo = sc.nextLine().trim();
+        // Simple calls just as example, no extra logic
+        lib.findLoansByUser(uidInfo);
+        lib.getReminderService();
+        System.out.println("Info: demo user id is "
+                + demoUser.getId()
+                + " email=" + demoUser.getEmail()
+                + " outstandingFine=" + demoUser.getOutstandingFine());
+    }
+
+    // ======================= UTIL =======================
+
     private static void printMediaList(List<Media> results) {
         if (results == null || results.isEmpty()) {
             System.out.println("No results.");
