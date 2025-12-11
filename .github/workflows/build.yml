@@ -1,49 +1,32 @@
-name: GitHub Actions Maven Build Example
-
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-
-jobs:
-  build-on-ubuntu:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Step 1 - Checkout main branch from GitHub
-        uses: actions/checkout@v2
-
-      - name: Step 2 - Set up JDK 17
-        uses: actions/setup-java@v3
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Step 3 - Build Maven Project
-        run: mvn --batch-mode clean install package -DskipTests
-
-      - name: Step 4 - Run test cases
-        run: mvn --batch-mode -Dmaven.test.failure.ignore=true test
-
-      - name: Cache SonarCloud packages
-        uses: actions/cache@v3
-        with:
-          path: ~/.sonar/cache
-          key: ${{ runner.os }}-sonar
-          restore-keys: ${{ runner.os }}-sonar
-
-      - name: Cache Maven packages
-        uses: actions/cache@v3
-        with:
-          path: ~/.m2
-          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-          restore-keys: ${{ runner.os }}-m2
-
-      - name: Build and analyze
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN2023 }}
-        run: |
-          mvn -B clean verify jacoco:report
-          mvn -B sonar:sonar
+yaml 
+name: Build and Analyze 
+on: 
+push: 
+branches: - master 
+pull_request: 
+branches: - master 
+jobs: 
+build: 
+name: Build and SonarCloud Scan 
+runs-on: ubuntu-latest 
+steps: - name: Checkout code 
+uses: actions/checkout@v3 
+with: 
+fetch-depth: 0 - name: Set up JDK 17 
+uses: actions/setup-java@v3 
+with: 
+distribution: 'temurin' 
+java-version: '17' - name: Cache Maven packages 
+uses: actions/cache@v3 
+with: 
+path: ~/.m2 
+key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }} 
+restore-keys: | 
+${{ runner.os }}-maven- - name: Build with Maven 
+run: mvn -B verify --file pom.xml - name: SonarCloud Scan 
+uses: SonarSource/sonarcloud-github-action@master 
+with: 
+args: > -Dsonar.projectKey=your-org-name_repo-name -Dsonar.organization=your-org-name 
+env: 
+GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }} 
