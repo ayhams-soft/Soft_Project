@@ -55,7 +55,6 @@ public class AppConfig {
      * Adds some sample users to start with.
      */
     private void seedUsers() {
-        userRepo.save(new User("demo", "demo@example.com"));
         userRepo.save(new User("ahmad", "ahmad@gmail.com"));
         userRepo.save(new User("mona", "mona@yahoo.com"));
         userRepo.save(new User("yazan", "yazan@hotmail.com"));

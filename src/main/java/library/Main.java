@@ -3,7 +3,6 @@ package library;
 import library.domain.User;
 import library.domain.media.Media;
 import library.exception.BusinessRuleException;
-import library.exception.NotAuthorizedException;
 import library.exception.ResourceNotFoundException;
 import library.service.AuthService;
 import library.service.LibraryService;
@@ -152,10 +151,10 @@ public class Main {
                             try {
                                 if (cfg.fakeEmailClient() != null) {
                                     System.out.println("FakeEmailClient sent messages:");
-                                    cfg.fakeEmailClient().getSent().forEach(s ->
-                                            System.out.println(" - to=" + s.to
-                                                    + " | subject=" + s.subject
-                                                    + " | body=" + s.body)
+                                    cfg.fakeEmailClient().getSent().forEach(msg ->
+                                            System.out.println(" - to=" + msg.getTo()
+                                                    + " | subject=" + msg.getSubject()
+                                                    + " | body=" + msg.getBody())
                                     );
                                     System.out.println("Total fake emails sent: "
                                             + cfg.fakeEmailClient().getSent().size());
@@ -192,7 +191,7 @@ public class Main {
                         );
                         break;
                     case "9":
-                        cfg.mediaRepository().findAll().forEach(m ->
+                        cfg.mediaRepository().findAll().forEach(m -> 
                                 System.out.println(" - " + m.getId()
                                         + " | " + m.getTitle()
                                         + " | available=" + m.isAvailable()

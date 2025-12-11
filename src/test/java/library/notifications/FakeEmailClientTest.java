@@ -1,5 +1,6 @@
 package library.notifications;
 
+import library.dto.EmailMessage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -36,15 +37,16 @@ class FakeEmailClientTest {
     void send_storesEmailCorrectly() {
         client.send("ayham@test.com", "Hello", "Message body");
 
-        List<FakeEmailClient.SentEmail> sent = client.getSent();
+        // getSent now returns List<EmailMessage>, not SentEmail
+        List<EmailMessage> sent = client.getSent();
 
         assertEquals(1, sent.size());
 
-        FakeEmailClient.SentEmail email = sent.get(0);
+        EmailMessage email = sent.get(0);
 
-        assertEquals("ayham@test.com", email.to);
-        assertEquals("Hello", email.subject);
-        assertEquals("Message body", email.body);
+        assertEquals("ayham@test.com", email.getTo());
+        assertEquals("Hello", email.getSubject());
+        assertEquals("Message body", email.getBody());
     }
 
     /**
@@ -54,8 +56,9 @@ class FakeEmailClientTest {
     void getSent_returnsUnmodifiableList() {
         client.send("x@test.com", "S1", "B1");
 
-        List<FakeEmailClient.SentEmail> sent = client.getSent();
+        List<EmailMessage> sent = client.getSent();
 
+        // still unmodifiable
         assertThrows(UnsupportedOperationException.class, () -> sent.add(null));
     }
 
@@ -69,7 +72,7 @@ class FakeEmailClientTest {
 
         client.clear();
 
-        List<FakeEmailClient.SentEmail> sent = client.getSent();
+        List<EmailMessage> sent = client.getSent();
         assertEquals(0, sent.size());
     }
 }
